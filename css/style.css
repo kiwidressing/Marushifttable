@@ -220,6 +220,44 @@ body {
   text-decoration: underline;
 }
 
+/* 구분선 */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider span {
+  padding: 0 10px;
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Google 로그인 버튼 */
+.btn-google {
+  background-color: #ffffff;
+  color: #757575;
+  border: 1px solid #dadce0;
+}
+
+.btn-google:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.btn-google i {
+  color: #4285f4;
+}
+
 /* 헤더 */
 .app-header {
   background-color: var(--card-bg);

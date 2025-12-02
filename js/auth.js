@@ -53,6 +53,24 @@ const Auth = {
     document.getElementById('logoutBtn').addEventListener('click', () => {
       this.handleLogout();
     });
+
+    // Google 로그인 버튼
+    document.getElementById('googleLoginBtn').addEventListener('click', () => {
+      this.handleGoogleLogin();
+    });
+
+    document.getElementById('googleSignupBtn').addEventListener('click', () => {
+      this.handleGoogleLogin();
+    });
+
+    // Firebase Auth State 변경 감지
+    if (auth) {
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          this.handleFirebaseUser(user);
+        }
+      });
+    }
   },
 
   // 로그인 처리
@@ -167,10 +185,94 @@ const Auth = {
 
   // 로그아웃 처리
   handleLogout() {
-    if (confirm('로그아웃 하시겠습니까?')) {
+    if (confirm('Are you sure you want to logout?')) {
+      // Firebase 로그아웃
+      if (typeof auth !== 'undefined' && auth && auth.currentUser) {
+        auth.signOut();
+      }
+      
       this.currentUser = null;
       localStorage.removeItem('currentUser');
       this.showAuthModal();
+    }
+  },
+
+  // Google 로그인 처리
+  async handleGoogleLogin() {
+    if (typeof auth === 'undefined' || !auth) {
+      alert('Firebase is not configured. Please check firebase-config.js');
+      return;
+    }
+
+    try {
+      const result = await auth.signInWithPopup(googleProvider);
+      const user = result.user;
+      
+      // Firebase 사용자 정보로 앱 사용자 생성
+      await this.handleFirebaseUser(user);
+      
+    } catch (error) {
+      console.error('Google login error:', error);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        // 사용자가 팝업을 닫음 - 에러 표시 안 함
+        return;
+      }
+      
+      alert('Google login failed: ' + error.message);
+    }
+  },
+
+  // Firebase 사용자 처리
+  async handleFirebaseUser(firebaseUser) {
+    try {
+      // Firebase 사용자 정보로 데이터베이스 확인/생성
+      const response = await fetch(`tables/users?search=${encodeURIComponent(firebaseUser.email)}`);
+      const result = await response.json();
+
+      let dbUser = null;
+
+      if (result.data && result.data.length > 0) {
+        // 기존 사용자
+        dbUser = result.data.find(u => u.email === firebaseUser.email);
+      }
+
+      if (!dbUser) {
+        // 새 사용자 생성
+        const newUser = {
+          username: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+          email: firebaseUser.email,
+          password: 'google_auth', // Google 로그인은 비밀번호 불필요
+          created_at: new Date().toISOString()
+        };
+
+        const createResponse = await fetch('tables/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser)
+        });
+
+        if (createResponse.ok) {
+          dbUser = await createResponse.json();
+        } else {
+          throw new Error('Failed to create user in database');
+        }
+      }
+
+      // 로그인 성공
+      this.currentUser = {
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        photoURL: firebaseUser.photoURL || null
+      };
+
+      localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+      this.showApp();
+
+    } catch (error) {
+      console.error('Firebase user handling error:', error);
+      alert('An error occurred while processing your account.');
     }
   },
 
